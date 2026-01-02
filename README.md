@@ -2,7 +2,7 @@
 
 ## Overview
 
-ML-Lineage-Tracker is a CLI tool for tracking **datasets, experiments (runs), and models** to provide **end-to-end lineage** across the ML lifecycle. It records how models are produced so workflows are reproducible, traceable, and auditable.
+ML-Lineage-Tracker is a lightweight CLI tool for tracking **datasets, experiments (runs), and models** to provide **end-to-end lineage** across the ML lifecycle. It records how models are produced so workflows are reproducible, traceable, and auditable.
 
 This project focuses on **metadata and relationships**, not model training or artifact storage.
 
