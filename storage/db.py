@@ -5,6 +5,44 @@ SUPABASE_URL: str | None = os.environ.get("ML_LINEAGE_SUPABASE_URL")
 SUPABASE_KEY: str | None = os.environ.get("ML_LINEAGE_SUPABASE_KEY")
 
 
+class DatabaseConnection:
+    """Wrapper around Supabase client for database operations.
+    
+    This class provides a simplified interface for database operations,
+    abstracting the Supabase client implementation.
+    
+    Attributes:
+        client: The underlying Supabase client instance.
+    """
+    
+    def __init__(self, client: Client):
+        """Initialize DatabaseConnection with a Supabase client.
+        
+        Args:
+            client: A Supabase Client instance.
+        """
+        self.client = client
+    
+    def insert(self, table: str, record: dict) -> None:
+        """Insert a record into the specified table.
+        
+        Args:
+            table: The name of the table to insert into.
+            record: Dictionary containing the record data.
+        """
+        self.client.table(table).insert(record).execute()
+    
+    def table(self, table: str):
+        """Get a query builder for the specified table.
+        
+        Args:
+            table: The name of the table.
+            
+        Returns:
+            The Supabase table query builder.
+        """
+        return self.client.table(table)
+
 
 def connect_to_supabase() -> Client:
     """Establish a connection to the database.

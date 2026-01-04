@@ -68,3 +68,22 @@ class Dataset:
             "actor": self.actor,
             "description": self.description
         }
+    
+    
+    @classmethod
+    def from_record(cls, record: dict) -> "Dataset":
+        """Create a Dataset instance from a dictionary record.
+        
+        Args:
+            record: Dictionary containing dataset fields.
+            
+        Returns:
+            Dataset: A Dataset instance created from the record.
+        """
+        return cls(
+            name=record["name"],
+            version=record["version"],
+            source=record["source"],
+            actor=record["actor"],
+            description=record.get("description")
+        )
