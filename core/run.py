@@ -17,7 +17,7 @@ class Run:
         start_time: Timestamp when the run started.
         end_time: Optional timestamp when the run ended.
     """
-    def __init__(self, dataset_id: str, run_name: str, actor: str, parameters: dict, start_time: datetime.datetime, code_reference: str | None = None, metrics: dict | None = None, end_time: datetime.datetime | None = None) -> None:
+    def __init__(self, dataset_id: str, run_name: str, actor: str, parameters: dict, start_time: datetime, code_reference: str | None = None, metrics: dict | None = None, end_time: datetime | None = None) -> None:
         """Initialize a Run instance.
         
         Args:
@@ -86,4 +86,25 @@ class Run:
             "start_time": self.start_time.timestamp(),
             "end_time": self.end_time.timestamp() if self.end_time else None
         }
+    
+    
+    @classmethod
+    def from_record(cls, record: dict) -> "Run":
+        """Create a Run instance from a dictionary record.
         
+        Args:
+            record: Dictionary containing run fields.
+            
+        Returns:
+            Run: A Run instance created from the record.
+        """
+        return cls(
+            dataset_id=record["dataset_id"],
+            run_name=record["run_name"],
+            actor=record["actor"],
+            parameters=record["parameters"],
+            start_time=record["start_time"],
+            code_reference=record.get("code_reference"),
+            metrics=record.get("metrics"),
+            end_time=record.get("end_time")
+        )
