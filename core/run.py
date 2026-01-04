@@ -1,6 +1,5 @@
 from typing import Optional
-import datetime
-
+from datetime import datetime
 class Run:
     """Represents a single execution of a training attempt (experiment run).
     
@@ -18,11 +17,12 @@ class Run:
         start_time: Timestamp when the run started.
         end_time: Optional timestamp when the run ended.
     """
-    def __init__(self, dataset_id: str, actor: str, parameters: dict, start_time: datetime.datetime, code_reference: str | None = None, metrics: dict | None = None, end_time: datetime.datetime | None = None) -> None:
+    def __init__(self, dataset_id: str, run_name: str, actor: str, parameters: dict, start_time: datetime.datetime, code_reference: str | None = None, metrics: dict | None = None, end_time: datetime.datetime | None = None) -> None:
         """Initialize a Run instance.
         
         Args:
             dataset_id: The identifier of the dataset used for this training run.
+            run_name: The name of this run.
             actor: The identity of who executed this run.
             parameters: Dictionary of hyperparameters and configuration parameters.
             start_time: Timestamp when the run started.
@@ -39,6 +39,7 @@ class Run:
         self.actor = actor
         self.parameters = parameters
         self.code_reference = code_reference
+        self.run_name = run_name
         if metrics is None:
             self.metrics = {}
         else:
@@ -59,6 +60,8 @@ class Run:
             raise ValueError("Dataset is required")
         if not self.actor:
             raise ValueError("Actor is required")
+        if not self.run_name:
+            raise ValueError("Run name is required")
         if self.parameters is None or not isinstance(self.parameters, dict):
             raise ValueError("Parameters are required")
         if not self.start_time:
@@ -75,11 +78,12 @@ class Run:
         """
         return {
             "dataset_id": self.dataset_id,
+            "run_name": self.run_name,
             "actor": self.actor,
             "parameters": self.parameters,
             "code_reference": self.code_reference,
             "metrics": self.metrics,
-            "start_time": self.start_time,
-            "end_time": self.end_time if self.end_time else None
+            "start_time": self.start_time.timestamp(),
+            "end_time": self.end_time.timestamp() if self.end_time else None
         }
         
