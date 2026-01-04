@@ -275,4 +275,255 @@ class TestDatasetRepository:
         assert ("name", "my_dataset") in calls
         assert ("version", "2.0.0") in calls
         mock_query.execute.assert_called_once()
+    
+    def test_batch_get_success(self, repository, mock_db_connection):
+        """Test successfully retrieving multiple datasets."""
+        mock_response_1 = MagicMock()
+        mock_response_1.error = None
+        mock_response_1.data = [{
+            "name": "dataset1",
+            "version": "1.0.0",
+            "source": "s3://bucket/data1.csv",
+            "actor": "user1",
+            "description": "Dataset 1"
+        }]
+        
+        mock_response_2 = MagicMock()
+        mock_response_2.error = None
+        mock_response_2.data = [{
+            "name": "dataset2",
+            "version": "2.0.0",
+            "source": "s3://bucket/data2.csv",
+            "actor": "user2",
+            "description": "Dataset 2"
+        }]
+        
+        mock_query = MagicMock()
+        mock_query.execute.side_effect = [mock_response_1, mock_response_2]
+        mock_query.eq.return_value = mock_query
+        mock_query.select.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        names_versions = [("dataset1", "1.0.0"), ("dataset2", "2.0.0")]
+        datasets, count = repository.batch_get(names_versions)
+        
+        assert count == 2
+        assert len(datasets) == 2
+        assert datasets[0].name == "dataset1"
+        assert datasets[1].name == "dataset2"
+    
+    def test_batch_get_partial_success(self, repository, mock_db_connection):
+        """Test batch_get when some datasets are not found."""
+        mock_response_1 = MagicMock()
+        mock_response_1.error = None
+        mock_response_1.data = [{
+            "name": "dataset1",
+            "version": "1.0.0",
+            "source": "s3://bucket/data1.csv",
+            "actor": "user1",
+            "description": None
+        }]
+        
+        mock_response_2 = MagicMock()
+        mock_response_2.error = None
+        mock_response_2.data = []
+        
+        mock_query = MagicMock()
+        mock_query.execute.side_effect = [mock_response_1, mock_response_2]
+        mock_query.eq.return_value = mock_query
+        mock_query.select.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        names_versions = [("dataset1", "1.0.0"), ("nonexistent", "1.0.0")]
+        datasets, count = repository.batch_get(names_versions)
+        
+        assert count == 1
+        assert len(datasets) == 1
+        assert datasets[0].name == "dataset1"
+    
+    def test_batch_get_skips_invalid_entries(self, repository, mock_db_connection):
+        """Test batch_get skips entries with empty name or version."""
+        mock_response = MagicMock()
+        mock_response.error = None
+        mock_response.data = [{
+            "name": "dataset1",
+            "version": "1.0.0",
+            "source": "s3://bucket/data1.csv",
+            "actor": "user1",
+            "description": None
+        }]
+        
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_response
+        mock_query.eq.return_value = mock_query
+        mock_query.select.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        names_versions = [("dataset1", "1.0.0"), ("", "1.0.0"), ("dataset2", "")]
+        datasets, count = repository.batch_get(names_versions)
+        
+        assert count == 1
+        assert len(datasets) == 1
+        assert datasets[0].name == "dataset1"
+        assert mock_query.execute.call_count == 1
+    
+    def test_batch_get_empty_list(self, repository):
+        """Test batch_get with empty list."""
+        datasets, count = repository.batch_get([])
+        
+        assert count == 0
+        assert len(datasets) == 0
+    
+    def test_batch_get_with_error(self, repository, mock_db_connection):
+        """Test batch_get raises RuntimeError when database returns an error."""
+        mock_error = MagicMock()
+        mock_error.message = "Database connection failed"
+        
+        mock_response = MagicMock()
+        mock_response.error = mock_error
+        mock_response.data = None
+        
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_response
+        mock_query.eq.return_value = mock_query
+        mock_query.select.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        names_versions = [("dataset1", "1.0.0")]
+        
+        with pytest.raises(RuntimeError) as exc_info:
+            repository.batch_get(names_versions)
+        
+        assert "Error retrieving dataset: Database connection failed" in str(exc_info.value)
+    
+    def test_batch_create_success(self, repository, mock_db_connection):
+        """Test successfully creating multiple datasets."""
+        dataset1 = Dataset(
+            name="dataset1",
+            version="1.0.0",
+            source="s3://bucket/data1.csv",
+            actor="user1",
+            description="Dataset 1"
+        )
+        
+        dataset2 = Dataset(
+            name="dataset2",
+            version="2.0.0",
+            source="s3://bucket/data2.csv",
+            actor="user2"
+        )
+        
+        datasets = [dataset1, dataset2]
+        repository.batch_create(datasets)
+        
+        assert mock_db_connection.insert.call_count == 2
+        calls = mock_db_connection.insert.call_args_list
+        assert calls[0][0][0] == "Dataset"
+        assert calls[0][0][1] == dataset1.to_record()
+        assert calls[1][0][0] == "Dataset"
+        assert calls[1][0][1] == dataset2.to_record()
+    
+    def test_batch_create_empty_list(self, repository, mock_db_connection):
+        """Test batch_create with empty list."""
+        repository.batch_create([])
+        
+        mock_db_connection.insert.assert_not_called()
+    
+    def test_batch_create_single_dataset(self, repository, sample_dataset, mock_db_connection):
+        """Test batch_create with single dataset."""
+        repository.batch_create([sample_dataset])
+        
+        mock_db_connection.insert.assert_called_once()
+        call_args = mock_db_connection.insert.call_args
+        assert call_args[0][0] == "Dataset"
+        assert call_args[0][1] == sample_dataset.to_record()
+    
+    def test_batch_delete_success(self, repository, mock_db_connection):
+        """Test successfully deleting multiple datasets."""
+        mock_response_1 = MagicMock()
+        mock_response_1.error = None
+        mock_response_1.data = [{"name": "dataset1", "version": "1.0.0"}]
+        
+        mock_response_2 = MagicMock()
+        mock_response_2.error = None
+        mock_response_2.data = [{"name": "dataset2", "version": "2.0.0"}]
+        
+        mock_query = MagicMock()
+        mock_query.execute.side_effect = [mock_response_1, mock_response_2]
+        mock_query.eq.return_value = mock_query
+        mock_query.delete.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        name_versions = [("dataset1", "1.0.0"), ("dataset2", "2.0.0")]
+        total_deleted = repository.batch_delete(name_versions)
+        
+        assert total_deleted == 2
+        assert mock_query.execute.call_count == 2
+    
+    def test_batch_delete_partial_success(self, repository, mock_db_connection):
+        """Test batch_delete when some datasets don't exist."""
+        mock_response_1 = MagicMock()
+        mock_response_1.error = None
+        mock_response_1.data = [{"name": "dataset1", "version": "1.0.0"}]
+        
+        mock_response_2 = MagicMock()
+        mock_response_2.error = None
+        mock_response_2.data = []
+        
+        mock_query = MagicMock()
+        mock_query.execute.side_effect = [mock_response_1, mock_response_2]
+        mock_query.eq.return_value = mock_query
+        mock_query.delete.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        name_versions = [("dataset1", "1.0.0"), ("nonexistent", "1.0.0")]
+        total_deleted = repository.batch_delete(name_versions)
+        
+        assert total_deleted == 1
+    
+    def test_batch_delete_skips_invalid_entries(self, repository, mock_db_connection):
+        """Test batch_delete skips entries with empty name or version."""
+        mock_response = MagicMock()
+        mock_response.error = None
+        mock_response.data = [{"name": "dataset1", "version": "1.0.0"}]
+        
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_response
+        mock_query.eq.return_value = mock_query
+        mock_query.delete.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        name_versions = [("dataset1", "1.0.0"), ("", "1.0.0"), ("dataset2", "")]
+        total_deleted = repository.batch_delete(name_versions)
+        
+        assert total_deleted == 1
+        assert mock_query.execute.call_count == 1
+    
+    def test_batch_delete_empty_list(self, repository):
+        """Test batch_delete with empty list."""
+        total_deleted = repository.batch_delete([])
+        
+        assert total_deleted == 0
+    
+    def test_batch_delete_with_error(self, repository, mock_db_connection):
+        """Test batch_delete raises RuntimeError when database returns an error."""
+        mock_error = MagicMock()
+        mock_error.message = "Database connection failed"
+        
+        mock_response = MagicMock()
+        mock_response.error = mock_error
+        mock_response.data = None
+        
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_response
+        mock_query.eq.return_value = mock_query
+        mock_query.delete.return_value = mock_query
+        mock_db_connection.table.return_value = mock_query
+        
+        name_versions = [("dataset1", "1.0.0")]
+        
+        with pytest.raises(RuntimeError) as exc_info:
+            repository.batch_delete(name_versions)
+        
+        assert "Error deleting dataset: Database connection failed" in str(exc_info.value)
 
