@@ -1,4 +1,4 @@
-# ML-Lineage-Trackern - ML Experiment and Model Lineage Tracking
+# ML-Lineage-Tracker - ML Experiment and Model Lineage Tracking
 
 ## Overview
 
