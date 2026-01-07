@@ -62,6 +62,25 @@ class Model:
         return {
             "artifact_uri": self.artifact_uri,
             "model_name": self.model_name,
-            "associated_run_id": self.associated_run_id,
+            "run_id": self.associated_run_id,
             "lifecycle_stage": self.lifecycle_stage
         }
+        
+    @classmethod
+    def from_record(cls, record: dict) -> "Model":
+        """Create a Model instance from a dictionary record.
+        
+        Args:
+            record: Dictionary containing model fields.
+            
+        Returns:
+            Model: A Model instance created from the record.
+        """
+        run_id = record.get("run_id") or record.get("associated_run_id")
+        return cls(
+            artifact_uri=record["artifact_uri"],
+            model_name=record["model_name"],
+            associated_run_id=run_id,
+            lifecycle_stage=record["lifecycle_stage"]
+        )
+        

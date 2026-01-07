@@ -24,7 +24,6 @@ class TestDatasetRepository:
             name="test_dataset",
             version="1.0.0",
             source="s3://bucket/data.csv",
-            actor="test_user",
             description="Test dataset"
         )
     
@@ -51,7 +50,6 @@ class TestDatasetRepository:
             "name": "test_dataset",
             "version": "1.0.0",
             "source": "s3://bucket/data.csv",
-            "actor": "test_user",
             "description": "Test dataset"
         }
         mock_db_connection.insert.assert_called_once_with("Dataset", expected_record)
@@ -64,7 +62,6 @@ class TestDatasetRepository:
             "name": "test_dataset",
             "version": "1.0.0",
             "source": "s3://bucket/data.csv",
-            "actor": "test_user",
             "description": "Test dataset"
         }]
         
@@ -153,8 +150,7 @@ class TestDatasetRepository:
         minimal_dataset = Dataset(
             name="minimal",
             version="1.0",
-            source="/path/to/data",
-            actor="user"
+            source="/path/to/data"
         )
         
         repository.add_dataset(minimal_dataset)
@@ -163,7 +159,6 @@ class TestDatasetRepository:
             "name": "minimal",
             "version": "1.0",
             "source": "/path/to/data",
-            "actor": "user",
             "description": None
         }
         mock_db_connection.insert.assert_called_once_with("Dataset", expected_record)
@@ -284,7 +279,6 @@ class TestDatasetRepository:
             "name": "dataset1",
             "version": "1.0.0",
             "source": "s3://bucket/data1.csv",
-            "actor": "user1",
             "description": "Dataset 1"
         }]
         
@@ -294,7 +288,6 @@ class TestDatasetRepository:
             "name": "dataset2",
             "version": "2.0.0",
             "source": "s3://bucket/data2.csv",
-            "actor": "user2",
             "description": "Dataset 2"
         }]
         
@@ -320,7 +313,6 @@ class TestDatasetRepository:
             "name": "dataset1",
             "version": "1.0.0",
             "source": "s3://bucket/data1.csv",
-            "actor": "user1",
             "description": None
         }]
         
@@ -349,7 +341,6 @@ class TestDatasetRepository:
             "name": "dataset1",
             "version": "1.0.0",
             "source": "s3://bucket/data1.csv",
-            "actor": "user1",
             "description": None
         }]
         
@@ -402,15 +393,13 @@ class TestDatasetRepository:
             name="dataset1",
             version="1.0.0",
             source="s3://bucket/data1.csv",
-            actor="user1",
             description="Dataset 1"
         )
         
         dataset2 = Dataset(
             name="dataset2",
             version="2.0.0",
-            source="s3://bucket/data2.csv",
-            actor="user2"
+            source="s3://bucket/data2.csv"
         )
         
         datasets = [dataset1, dataset2]

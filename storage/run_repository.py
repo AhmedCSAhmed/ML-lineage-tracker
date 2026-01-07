@@ -2,6 +2,7 @@ from .db import DatabaseConnection
 from core.run import Run
 from datetime import datetime, timezone
 from typing import Optional, Tuple
+from postgrest.exceptions import APIError
 
 class RunRepository:
     """Repository for managing runs (experiment executions) in the storage system.
@@ -40,8 +41,14 @@ class RunRepository:
         record = run.to_record()
         now = datetime.now(timezone.utc)
         now_naive_utc = now.replace(tzinfo=None)
-        record["start_time"] = now_naive_utc
-        self.db_connection.insert(self.RUN_TABLE, record)
+        record["start_time"] = now_naive_utc.isoformat()
+        if record.get("end_time"):
+            if isinstance(record["end_time"], datetime):
+                record["end_time"] = record["end_time"].isoformat()
+        try:
+            self.db_connection.insert(self.RUN_TABLE, record)
+        except Exception as e:
+            raise RuntimeError(f"Failed to add run: {str(e)}")
     
     
     def get_run(self, run_name: str) -> Optional[Run]:
@@ -60,23 +67,58 @@ class RunRepository:
         if not run_name:
             raise ValueError("Run name is required to retrieve a run")
         
-        response = (
-            self.db_connection
-            .table(self.RUN_TABLE)
-            .select("*")
-            .eq("run_name", run_name)
-            .execute()
-        )
-        if response.error:
-            raise RuntimeError(f"Error retrieving run: {response.error.message}")
+        try:
+            response = (
+                self.db_connection
+                .table(self.RUN_TABLE)
+                .select("*")
+                .eq("name", run_name)
+                .execute()
+            )
+        except Exception as e:
+            raise RuntimeError(f"Error retrieving run: {str(e)}")
         if not response.data:
             return None
         record = response.data[0]
         return Run.from_record(record)
     
+    def get_run_id(self, name: str) -> Optional[str]:
+        """Get the UUID of a run by its name.
+        
+        This is useful when you need the run UUID for creating related entities
+        (e.g., creating a Model that was produced by this run).
+        
+        Args:
+            name: The name of the run.
+            
+        Returns:
+            Optional[str]: The UUID of the run, or None if not found.
+            
+        Raises:
+            ValueError: If name is empty or None.
+            RuntimeError: If the database operation fails.
+        """
+        if not name:
+            raise ValueError("Run name is required to retrieve a run ID")
+        
+        try:
+            response = (
+                self.db_connection
+                .table(self.RUN_TABLE)
+                .select("run_id")
+                .eq("name", name)
+                .execute()
+            )
+        except APIError as e:
+            raise RuntimeError(f"Error retrieving run ID: {str(e)}")
+        
+        if not response.data:
+            return None
+            
+        return response.data[0].get("run_id")
     
     
-    def batch_get(self, run_names: list[str]) -> tuple[list[Run], int]:
+    def batch_get(self, run_names: list[str]) -> list[Run]:
         """Retrieve multiple runs by their names.
         
         Args:
@@ -103,7 +145,7 @@ class RunRepository:
             except RuntimeError as e:
                 # Log the error and just continue don't want to fail the whole batch
                 continue
-        return collected_runs, len(collected_runs)
+        return collected_runs
     
     
     
@@ -121,11 +163,25 @@ class RunRepository:
             RuntimeError: If the database operation fails.
         """
         record = run.to_record()
-        run_name = record.get("run_name")
+        run_name = record.get("name")
         if not run_name:
             raise ValueError("Run name is required to update a run")
         
-        self.db_connection.table(self.RUN_TABLE).update(record).eq("run_name", run_name).execute()
+        try:
+            response = (self.db_connection
+                        .table(self.RUN_TABLE)
+                        .update(record)
+                        .eq("name", run_name)
+                        .execute() 
+                        )
+        except Exception as e:
+            raise RuntimeError(f"Failed to update run: {str(e)}")
+        
+        if not response.data:
+            raise RuntimeError("No run found to update")
+        
+        
+        
         
             
             
@@ -145,6 +201,9 @@ class RunRepository:
         
       
         record = self.get_run(run_name)  
+        if record is None:
+            raise RuntimeError("Run not found")
+        
         end_time = record.end_time
         
         if end_time:
@@ -152,7 +211,7 @@ class RunRepository:
         
         now = datetime.now(timezone.utc)
         now_naive_utc = now.replace(tzinfo=None)
-        self.db_connection.table(self.RUN_TABLE).update({"end_time": now_naive_utc}).eq("run_name", run_name).execute()
+        self.db_connection.table(self.RUN_TABLE).update({"end_time": now_naive_utc.isoformat()}).eq("name", run_name).execute()
         
 
             
@@ -174,7 +233,7 @@ class RunRepository:
                 self.add_run(run)
     
     
-    def delete_run(self, run_name: str) -> int:
+    def delete_run(self, run_name: str) -> None:
         """Delete a run by its name.
         
         Args:
@@ -186,16 +245,16 @@ class RunRepository:
         if not run_name:
             raise ValueError("Run name is required to delete a run")
         
-        response = (
-            self.db_connection
-            .table(self.RUN_TABLE)
-            .delete()
-            .eq("run_name", run_name)
-            .execute()
-        )
+        try:
+            response = (
+                self.db_connection
+                .table(self.RUN_TABLE)
+                .delete()
+                .eq("name", run_name)
+                .execute()
+            )
+        except Exception as e:
+            raise RuntimeError(f"Error deleting run: {str(e)}")
         
-        if response.error:
-            raise RuntimeError(f"Error deleting run: {response.error.message}")
-        
-        return response.count if response.count else 0
-                    
+        if not response.data:
+            raise RuntimeError("No run found to delete")

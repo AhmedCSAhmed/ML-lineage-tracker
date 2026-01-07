@@ -76,16 +76,17 @@ class Run:
         Returns:
             dict: Dictionary containing all run metadata.
         """
-        return {
+        record = {
             "dataset_id": self.dataset_id,
-            "run_name": self.run_name,
+            "name": self.run_name,
             "actor": self.actor,
             "parameters": self.parameters,
             "code_reference": self.code_reference,
             "metrics": self.metrics,
-            "start_time": self.start_time.timestamp(),
-            "end_time": self.end_time.timestamp() if self.end_time else None
+            "start_time": self.start_time.isoformat() if isinstance(self.start_time, datetime) else self.start_time,
+            "end_time": self.end_time.isoformat() if self.end_time and isinstance(self.end_time, datetime) else self.end_time
         }
+        return record
     
     
     @classmethod
@@ -98,13 +99,27 @@ class Run:
         Returns:
             Run: A Run instance created from the record.
         """
+        from datetime import datetime
+        start_time = record["start_time"]
+        if isinstance(start_time, (int, float)):
+            start_time = datetime.fromtimestamp(start_time)
+        elif isinstance(start_time, str):
+            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        
+        end_time = record.get("end_time")
+        if end_time:
+            if isinstance(end_time, (int, float)):
+                end_time = datetime.fromtimestamp(end_time)
+            elif isinstance(end_time, str):
+                end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+        
         return cls(
             dataset_id=record["dataset_id"],
-            run_name=record["run_name"],
+            run_name=record.get("name") or record.get("run_name"),
             actor=record["actor"],
             parameters=record["parameters"],
-            start_time=record["start_time"],
+            start_time=start_time,
             code_reference=record.get("code_reference"),
             metrics=record.get("metrics"),
-            end_time=record.get("end_time")
+            end_time=end_time
         )

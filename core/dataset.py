@@ -13,27 +13,24 @@ class Dataset:
         name: The name of the dataset.
         version: The version identifier of the dataset.
         source: The source or path where the dataset is located.
-        actor: The identity of who created or registered this dataset.
         description: Optional description of the dataset.
     """
         
-    def __init__(self, name: str, version: str, source: str, actor: str, description: str | Optional[str] = None) -> None:
+    def __init__(self, name: str, version: str, source: str, description: str | Optional[str] = None) -> None:
         """Initialize a Dataset instance.
         
         Args:
             name: The name of the dataset.
             version: The version identifier of the dataset.
             source: The source or path where the dataset is located (e.g., S3 URI, file path).
-            actor: The identity of who created or registered this dataset.
             description: Optional description of the dataset.
             
         Raises:
-            ValueError: If any required field (name, version, source, actor) is missing.
+            ValueError: If any required field (name, version, source) is missing.
         """ 
         self.name = name
         self.version = version
         self.source = source
-        self.actor = actor 
         self.description = description
         self._enforce_required_fields()
         
@@ -50,8 +47,6 @@ class Dataset:
             raise ValueError("Version is required")
         if not self.source:
             raise ValueError("Source is required")
-        if not self.actor:
-            raise ValueError("Actor is required")
         
         
     def to_record(self) -> dict:
@@ -65,7 +60,6 @@ class Dataset:
             "name": self.name,
             "version": self.version,
             "source": self.source,
-            "actor": self.actor,
             "description": self.description
         }
     
@@ -84,6 +78,5 @@ class Dataset:
             name=record["name"],
             version=record["version"],
             source=record["source"],
-            actor=record["actor"],
             description=record.get("description")
         )

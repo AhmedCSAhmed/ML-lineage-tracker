@@ -1,6 +1,7 @@
 from .db import DatabaseConnection
 from core.dataset import Dataset
 from typing import Optional, Tuple
+from postgrest.exceptions import APIError
 
 class DatasetRepository:
     """Repository for managing datasets in the storage system.
@@ -53,22 +54,54 @@ class DatasetRepository:
         Raises:
             RuntimeError: If the database operation fails.
         """
-        response = (
-            self.db_connection
-            .table(self.DATASET_TABLE)
-            .select("*")
-            .eq("name", name)
-            .eq("version", version)
-            .execute())
+        try:
+            response = (
+                self.db_connection
+                .table(self.DATASET_TABLE)
+                .select("*")
+                .eq("name", name)
+                .eq("version", version)
+                .execute())
+        except Exception as e:
+            raise RuntimeError(f"Error retrieving dataset: {str(e)}")
             
-        if response.error:
-            raise RuntimeError(f"Error retrieving dataset: {response.error.message}")
-            
-        if  not response.data:
+        if not response.data:
             return None
                 
         record = response.data[0]
         return Dataset.from_record(record)
+    
+    def get_dataset_id(self, name: str, version: str) -> Optional[str]:
+        """Get the UUID of a dataset by name and version.
+        
+        This is useful when you need the dataset UUID for creating related entities
+        (e.g., creating a Run that uses this dataset).
+        
+        Args:
+            name: The name of the dataset.
+            version: The version of the dataset.
+            
+        Returns:
+            Optional[str]: The UUID of the dataset, or None if not found.
+            
+        Raises:
+            RuntimeError: If the database operation fails.
+        """
+        try:
+            response = (
+                self.db_connection
+                .table(self.DATASET_TABLE)
+                .select("dataset_id")
+                .eq("name", name)
+                .eq("version", version)
+                .execute())
+        except APIError as e:
+            raise RuntimeError(f"Error retrieving dataset ID: {e.message}")
+            
+        if not response.data:
+            return None
+            
+        return response.data[0].get("dataset_id")
     
     
     def delete_dataset(self, name: str, version: str) -> int:
@@ -88,17 +121,17 @@ class DatasetRepository:
         if not name or not version:
             raise ValueError("Both name and version are required to delete a dataset.")
         
-        response = (
-            self.db_connection
-            .table(self.DATASET_TABLE)
-            .delete()
-            .eq("name", name)
-            .eq("version", version)
-            .execute()
+        try:
+            response = (
+                self.db_connection
+                .table(self.DATASET_TABLE)
+                .delete()
+                .eq("name", name)
+                .eq("version", version)
+                .execute()
             )
-        
-        if response.error:
-            raise RuntimeError(f"Error deleting dataset: {response.error.message}")
+        except Exception as e:
+            raise RuntimeError(f"Error deleting dataset: {str(e)}")
         
         return len(response.data or [])
     
